@@ -11,6 +11,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public class Main {
@@ -56,7 +57,7 @@ public class Main {
             jFrameError.add(error);
             jFrame.setLayout(null);
             jFrame.setVisible(true);
-            sb.append(e);
+            sb.append(LocalDateTime.now()).append(" ").append(e);
         }
         });
         jFrame.add(tokenMessage);
@@ -75,7 +76,7 @@ public class Main {
                 HttpGet get = new HttpGet(String.format("https://api.vk.com/method/account.ban?owner_id=%d&access_token=%s&v=5.131", id, token));
                 var resp = httpClient.execute(get);
                 var response = new String(resp.getEntity().getContent().readAllBytes(), StandardCharsets.UTF_8);
-                sb.append(response);
+                sb.append(LocalDateTime.now()).append(" ").append(response).append("\n");
                 if (response.contains("Flood control")) {
                     Thread.sleep(TIMEOUT_FLOOD_CONTROL);
                 }
@@ -96,7 +97,7 @@ public class Main {
     }
 
     public static void write() {
-        try (BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(logs))) {
+        try (BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(logs, true))) {
             bufferedWriter.write(sb.toString());
         } catch (IOException e) {}
     }
