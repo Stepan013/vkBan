@@ -27,6 +27,7 @@ public class Main {
             logs.createNewFile();
         } catch (IOException e) {}
         var jFrame = new JFrame("Блокировка пользователей");
+        jFrame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         jFrame.setSize(600, 600);
         var tokenMessage = new JLabel("Введите api токен");
         tokenMessage.setBounds(50, 100, 150, 50);
