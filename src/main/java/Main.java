@@ -49,6 +49,7 @@ public class Main {
             jFrame.setVisible(false);
             block(tokenString, getIds(tokenString, Integer.parseInt(idArray[0]), Integer.parseInt(idArray[1])));
             write();
+            jFrame.setVisible(true);
         } catch (IOException | InterruptedException e) {
             var error = new JLabel(e.getMessage());
             error.setBounds(50, 50, 100, 100);
@@ -97,7 +98,7 @@ public class Main {
     }
 
     public static void write() {
-        try (BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(logs, true))) {
+        try (BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(logs))) {
             bufferedWriter.write(sb.toString());
         } catch (IOException e) {}
     }
