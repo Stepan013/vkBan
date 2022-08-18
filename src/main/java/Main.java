@@ -26,7 +26,7 @@ public class Main {
         try {
             dir.mkdir();
             logs.createNewFile();
-        } catch (IOException e) {}
+        } catch (IOException ignored) {}
         var jFrame = new JFrame("Блокировка пользователей");
         jFrame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         jFrame.setSize(600, 600);
@@ -50,14 +50,15 @@ public class Main {
             block(tokenString, getIds(tokenString, Integer.parseInt(idArray[0]), Integer.parseInt(idArray[1])));
             write();
             jFrame.setVisible(true);
-        } catch (IOException | InterruptedException e) {
+        } catch (Exception e) {
             var error = new JLabel(e.getMessage());
-            error.setBounds(50, 50, 100, 100);
+            error.setBounds(200, 100, 200, 100);
             var jFrameError = new JFrame("Ошибка");
-            jFrameError.setSize(200, 200);
+            jFrameError.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+            jFrameError.setSize(600, 400);
             jFrameError.add(error);
-            jFrame.setLayout(null);
-            jFrame.setVisible(true);
+            jFrameError.setLayout(null);
+            jFrameError.setVisible(true);
             sb.append(LocalDateTime.now()).append(" ").append(e);
         }
         });
@@ -72,6 +73,7 @@ public class Main {
     }
 
     public static void block(String token, List<Integer> idList) throws IOException, InterruptedException {
+        int floodControl = 0;
         for (Integer id : idList) {
             try (CloseableHttpClient httpClient = HttpClientBuilder.create().build()) {
                 HttpGet get = new HttpGet(String.format("https://api.vk.com/method/account.ban?owner_id=%d&access_token=%s&v=5.131", id, token));
@@ -80,6 +82,10 @@ public class Main {
                 sb.append(LocalDateTime.now()).append(" ").append(response).append("\n");
                 if (response.contains("Flood control")) {
                     Thread.sleep(TIMEOUT_FLOOD_CONTROL);
+                    floodControl++;
+                    if (floodControl > 12) throw new RuntimeException("Flood Control");
+                } else {
+                    floodControl = 0;
                 }
                 Thread.sleep(TIMEOUT);
             }
@@ -100,6 +106,6 @@ public class Main {
     public static void write() {
         try (BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(logs))) {
             bufferedWriter.write(sb.toString());
-        } catch (IOException e) {}
+        } catch (IOException ignored) {}
     }
 }
