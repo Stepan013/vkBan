@@ -4,6 +4,9 @@ import com.google.gson.reflect.TypeToken;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.select.Elements;
 
 import javax.swing.*;
 import java.io.BufferedWriter;
@@ -11,12 +14,17 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Year;
 import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class Main {
 
     public static final long TIMEOUT = 500;
+    public static final long TIMEOUT_FIRST = 3000;
     public static final long TIMEOUT_FLOOD_CONTROL = 5000;
     public static final StringBuilder sb = new StringBuilder();
     public static final File dir = new File("C:\\Logs");
@@ -34,23 +42,24 @@ public class Main {
         tokenMessage.setBounds(50, 100, 150, 50);
         var token = new JTextField();
         token.setBounds(250, 100, 300, 50);
-        var urlMessage = new JLabel("Введите ссылку на пост");
-        urlMessage.setBounds(50, 300, 150, 50);
-        var url = new JTextField();
-        url.setBounds(250, 300, 300, 50);
+        var idMessage = new JLabel("Введите id пользователя");
+        idMessage.setBounds(50, 300, 150, 50);
+        var id = new JTextField();
+        id.setBounds(250, 300, 300, 50);
         var button = new JButton("Кинуть в чс");
         button.setBounds(150, 500, 200, 80);
         button.addActionListener(x -> {
         var tokenString = token.getText();
-        var urlString = url.getText();
-        var ids = urlString.split("wall");
-        var idArray = ids[1].split("_");
+        var inputId = Integer.parseInt(id.getText());
         try {
             jFrame.setVisible(false);
-            block(tokenString, getIds(tokenString, Integer.parseInt(idArray[0]), Integer.parseInt(idArray[1])));
+            Queue<Integer> set = new ConcurrentLinkedQueue<>();
+            set.add(inputId);
+            block(tokenString, set);
             write();
             jFrame.setVisible(true);
         } catch (Exception e) {
+            e.printStackTrace();
             var error = new JLabel(e.getMessage());
             error.setBounds(200, 100, 200, 100);
             var jFrameError = new JFrame("Ошибка");
@@ -64,21 +73,25 @@ public class Main {
         });
         jFrame.add(tokenMessage);
         jFrame.add(token);
-        jFrame.add(urlMessage);
-        jFrame.add(url);
+        jFrame.add(idMessage);
+        jFrame.add(id);
         jFrame.add(token);
         jFrame.add(button);
         jFrame.setLayout(null);
         jFrame.setVisible(true);
     }
 
-    public static void block(String token, List<Integer> idList) throws IOException, InterruptedException {
+    public static void block(String token, Queue<Integer> idQueue) throws IOException, InterruptedException {
         int floodControl = 0;
-        for (Integer id : idList) {
+        boolean first = true;
+        final var gson = new Gson();
+        while (!idQueue.isEmpty()) {
             try (CloseableHttpClient httpClient = HttpClientBuilder.create().build()) {
+                var id = idQueue.poll();
                 HttpGet get = new HttpGet(String.format("https://api.vk.com/method/account.ban?owner_id=%d&access_token=%s&v=5.131", id, token));
                 var resp = httpClient.execute(get);
                 var response = new String(resp.getEntity().getContent().readAllBytes(), StandardCharsets.UTF_8);
+                System.out.println(response);
                 sb.append(LocalDateTime.now()).append(" ").append(response).append("\n");
                 if (response.contains("Flood control")) {
                     Thread.sleep(TIMEOUT_FLOOD_CONTROL);
@@ -88,18 +101,19 @@ public class Main {
                     floodControl = 0;
                 }
                 Thread.sleep(TIMEOUT);
+                try {
+                    HttpGet friendsGet = new HttpGet(String.format("https://api.vk.com/method/friends.get?user_id=%d&access_token=%s&v=5.131", id, token));
+                    var friendsResponse = httpClient.execute(friendsGet);
+                    var friendsJson = new String(friendsResponse.getEntity().getContent().readAllBytes(), StandardCharsets.UTF_8);
+                    var idArray = JsonParser.parseString(friendsJson).getAsJsonObject().get("response").getAsJsonObject().get("items");
+                    List<Integer> friends = gson.fromJson(idArray, new TypeToken<List<Integer>>() {}.getType());
+                    new Thread(() -> add(friends, idQueue)).start();
+                    if (first) {
+                        Thread.sleep(TIMEOUT_FIRST);
+                        first = false;
+                    }
+                } catch (NullPointerException ignored) {}
             }
-        }
-    }
-
-    public static List<Integer> getIds(String token, int idGroup, int idPost) throws IOException {
-        try (CloseableHttpClient httpClient = HttpClientBuilder.create().build()) {
-            var httpGet = new HttpGet(String.format("https://api.vk.com/method/likes.getList?type=post&owner_id=%d&item_id=%d&extended=0&count=1000&offset=0&access_token=%s&v=5.131", idGroup, idPost, token));
-            var response = httpClient.execute(httpGet);
-            var json = new String(response.getEntity().getContent().readAllBytes(), StandardCharsets.UTF_8);
-            var idArray = JsonParser.parseString(json).getAsJsonObject().get("response").getAsJsonObject().get("items");
-            var gson = new Gson();
-            return gson.fromJson(idArray, new TypeToken<List<Integer>>() {}.getType());
         }
     }
 
@@ -107,5 +121,45 @@ public class Main {
         try (BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(logs))) {
             bufferedWriter.write(sb.toString());
         } catch (IOException ignored) {}
+    }
+
+    public static int parseMonth(String s) {
+        if (s.contains("янв")) return 1;
+        if (s.contains("фев")) return 2;
+        if (s.contains("мар")) return 3;
+        if (s.contains("апр")) return 4;
+        if (s.contains("мая")) return 5;
+        if (s.contains("июн")) return 6;
+        if (s.contains("июл")) return 7;
+        if (s.contains("авг")) return 8;
+        if (s.contains("сен")) return 9;
+        if (s.contains("окт")) return 10;
+        if (s.contains("ноя")) return 11;
+        if (s.contains("дек")) return 12;
+        throw new IllegalArgumentException("Месяц " + s + " не найден");
+    }
+
+    public static void add(List<Integer> friends, Queue<Integer> idQueue) {
+        for (int friend : friends) {
+            try {
+                Document doc = Jsoup.connect(String.format("https://vk.com/id%d", friend))
+                        .userAgent("Chrome/4.0.249.0 Safari/532.5")
+                        .get();
+                Elements elements = doc.select("span.pp_last_activity_text");
+                if (elements.isEmpty()) continue;
+                var date = elements.get(0).text();
+                if (date.isEmpty()) continue;
+                if (date.contains("Online") || date.contains("минут") || date.contains("недавно") || date.contains("час") || date.contains("вчера") || date.contains("сегодня") || date.contains("только что")) {
+                    idQueue.add(friend);
+                } else {
+                    var now = LocalDate.now();
+                    var max = now.minusDays(7);
+                    var arrayString = date.split(" ");
+                    var yearNow = Year.now();
+                    var year = LocalDate.now().isAfter(LocalDate.of(yearNow.getValue(), 1, 6)) ? yearNow : yearNow.minusYears(1);
+                    if (max.isBefore(LocalDate.of(year.getValue(), parseMonth(arrayString[2]), Integer.parseInt(arrayString[1])))) idQueue.add(friend);
+                }
+            } catch (Exception ignored) {}
+        }
     }
 }
