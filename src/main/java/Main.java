@@ -31,6 +31,7 @@ public class Main {
     public static final File logs = new File("C:\\Logs\\logBlock.log");
 
     public static void main(String[] args) {
+        Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
         try {
             dir.mkdir();
             logs.createNewFile();
@@ -53,9 +54,9 @@ public class Main {
         var inputId = Integer.parseInt(id.getText());
         try {
             jFrame.setVisible(false);
-            Queue<Integer> set = new ConcurrentLinkedQueue<>();
-            set.add(inputId);
-            block(tokenString, set);
+            Queue<Integer> queue = new ConcurrentLinkedQueue<>();
+            queue.add(inputId);
+            block(tokenString, queue);
             write();
             jFrame.setVisible(true);
         } catch (Exception e) {
