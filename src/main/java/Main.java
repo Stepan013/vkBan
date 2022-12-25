@@ -47,7 +47,11 @@ public class Main {
         var idArray = ids[1].split("_");
         try {
             jFrame.setVisible(false);
-            block(tokenString, getIds(tokenString, Integer.parseInt(idArray[0]), Integer.parseInt(idArray[1])));
+            var friends = friends(tokenString);
+            var ban = getIds(tokenString, Integer.parseInt(idArray[0]), Integer.parseInt(idArray[1])).stream()
+                    .filter(user -> !friends.contains(user))
+                    .toList();
+            block(tokenString, ban);
             write();
             jFrame.setVisible(true);
         } catch (Exception e) {
@@ -100,6 +104,18 @@ public class Main {
             var idArray = JsonParser.parseString(json).getAsJsonObject().get("response").getAsJsonObject().get("items");
             var gson = new Gson();
             return gson.fromJson(idArray, new TypeToken<List<Integer>>() {}.getType());
+        }
+    }
+
+    public static List<Integer> friends(String token) throws IOException {
+        Gson gson = new Gson();
+        try (CloseableHttpClient httpClient = HttpClientBuilder.create().build()) {
+            HttpGet friendsGet = new HttpGet(String.format("https://api.vk.com/method/friends.get?access_token=%s&v=5.131", token));
+            var friendsResponse = httpClient.execute(friendsGet);
+            var friendsJson = new String(friendsResponse.getEntity().getContent().readAllBytes(), StandardCharsets.UTF_8);
+            var idArray = JsonParser.parseString(friendsJson).getAsJsonObject().get("response").getAsJsonObject().get("items");
+            return gson.fromJson(idArray, new TypeToken<List<Integer>>() {
+            }.getType());
         }
     }
 
